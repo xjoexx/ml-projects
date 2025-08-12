@@ -182,15 +182,24 @@ def list_completed_jobs(search_program: Optional[str] = None) -> List[Dict[str, 
         return [dict(r) for r in rows]
 
 
-def enqueue_job(program_id: int, priority: int = 100, *, cut_type: Optional[str] = None, thickness: Optional[str] = None, material: Optional[str] = None) -> int:
+def enqueue_job(
+    program_id: int,
+    priority: int = 100,
+    *,
+    cut_type: Optional[str] = None,
+    thickness: Optional[str] = None,
+    material: Optional[str] = None,
+    heat_number: Optional[str] = None,
+    operator_name: Optional[str] = None,
+) -> int:
     now = datetime.utcnow().isoformat()
     with _connect() as conn:
         cur = conn.execute(
             """
-            INSERT INTO jobs(program_id, status, priority, queued_at, cut_type, thickness, material)
-            VALUES (?, 'queued', ?, ?, ?, ?, ?)
+            INSERT INTO jobs(program_id, status, priority, queued_at, cut_type, thickness, material, heat_number, operator_name)
+            VALUES (?, 'queued', ?, ?, ?, ?, ?, ?, ?)
             """,
-            (program_id, priority, now, cut_type, thickness, material),
+            (program_id, priority, now, cut_type, thickness, material, heat_number, operator_name),
         )
         conn.commit()
         return int(cur.lastrowid)

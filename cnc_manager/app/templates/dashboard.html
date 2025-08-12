@@ -78,6 +78,9 @@
           {% else %}
             —
           {% endif %}
+          <form method="post" action="/jobs/{{ j.id }}/duplicate" style="display:inline; margin-left:6px;">
+            <button type="submit">Дублировать</button>
+          </form>
         </td>
       </tr>
       {% endfor %}

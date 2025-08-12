@@ -145,6 +145,23 @@ def complete_job(job_id: int):
     return redirect(url_for("jobs_dashboard"))
 
 
+@app.route("/jobs/<int:job_id>/duplicate", methods=["POST"]) 
+def duplicate_job(job_id: int):
+    job = db.get_job(job_id)
+    if not job:
+        return ("Job not found", 404)
+    new_id = db.enqueue_job(
+        program_id=job["program_id"],
+        priority=job.get("priority", 100),
+        cut_type=job.get("cut_type"),
+        thickness=job.get("thickness"),
+        material=job.get("material"),
+        heat_number=job.get("heat_number"),
+        operator_name=job.get("operator_name"),
+    )
+    return redirect(url_for("jobs_dashboard"))
+
+
 @app.route("/archive", methods=["GET"]) 
 def archive_page():
     q = request.args.get("q", type=str)
