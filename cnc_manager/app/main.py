@@ -77,6 +77,28 @@ def jobs_api_list():
     return jsonify(jobs)
 
 
+@app.route("/jobs/reorder", methods=["POST"]) 
+def jobs_reorder():
+    payload = request.get_json(silent=True) or {}
+    job_ids = payload.get("job_ids")
+    if not isinstance(job_ids, list) or not all(isinstance(x, int) for x in job_ids):
+        return jsonify({"ok": False, "error": "job_ids must be a list[int]"}), 400
+    db.set_job_priorities(job_ids)
+    return jsonify({"ok": True})
+
+
+@app.route("/jobs/<int:job_id>/heat", methods=["POST"]) 
+def update_heat_number(job_id: int):
+    payload = request.get_json(silent=True) or {}
+    heat_number = payload.get("heat_number")
+    if heat_number is not None and not isinstance(heat_number, str):
+        return jsonify({"ok": False, "error": "heat_number must be string or null"}), 400
+    if not db.get_job(job_id):
+        return jsonify({"ok": False, "error": "Job not found"}), 404
+    db.update_job_heat_number(job_id, heat_number)
+    return jsonify({"ok": True})
+
+
 @app.route("/jobs/<int:job_id>/pause", methods=["POST"]) 
 def pause_job(job_id: int):
     job = db.get_job(job_id)

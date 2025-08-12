@@ -11,3 +11,7 @@ button:hover{background:#1d4ed8}
 table{width:100%;border-collapse:collapse}
 th,td{border-bottom:1px solid #eee;padding:8px;text-align:left}
 th{background:#fafafa}
+tr.draggable-row{cursor:move}
+.drag-handle{cursor:grab;color:#64748b}
+.dragging{opacity:0.6}
+.heat-input{min-width:140px}
