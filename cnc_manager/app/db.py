@@ -43,16 +43,34 @@ def init_db() -> None:
               error_message TEXT,
               heat_number TEXT,
               operator_name TEXT,
+              cut_type TEXT,
+              thickness TEXT,
+              material TEXT,
+              FOREIGN KEY(program_id) REFERENCES programs(id)
+            );
+
+            CREATE TABLE IF NOT EXISTS program_items (
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              program_id INTEGER NOT NULL,
+              part_number TEXT,
+              name TEXT,
+              quantity INTEGER,
               FOREIGN KEY(program_id) REFERENCES programs(id)
             );
             """
         )
-        # Migration: ensure heat_number and operator_name columns exist
+        # Migration: ensure added columns exist
         cols = [r[1] for r in conn.execute("PRAGMA table_info(jobs)").fetchall()]
-        if "heat_number" not in cols:
-            conn.execute("ALTER TABLE jobs ADD COLUMN heat_number TEXT")
-        if "operator_name" not in cols:
-            conn.execute("ALTER TABLE jobs ADD COLUMN operator_name TEXT")
+        for col_def in [
+            ("heat_number", "TEXT"),
+            ("operator_name", "TEXT"),
+            ("cut_type", "TEXT"),
+            ("thickness", "TEXT"),
+            ("material", "TEXT"),
+        ]:
+            if col_def[0] not in cols:
+                conn.execute(f"ALTER TABLE jobs ADD COLUMN {col_def[0]} {col_def[1]}")
+        # Ensure program_items exists (created above)
         conn.commit()
 
 
@@ -96,6 +114,15 @@ def find_program_by_name(name: str) -> Optional[Dict[str, Any]]:
             (name,),
         ).fetchone()
         return dict(row) if row else None
+
+
+def list_program_items(program_id: int) -> List[Dict[str, Any]]:
+    with _connect() as conn:
+        rows = conn.execute(
+            "SELECT id, part_number, name, quantity FROM program_items WHERE program_id = ? ORDER BY id",
+            (program_id,),
+        ).fetchall()
+        return [dict(r) for r in rows]
 
 
 # Job operations
@@ -155,15 +182,15 @@ def list_completed_jobs(search_program: Optional[str] = None) -> List[Dict[str, 
         return [dict(r) for r in rows]
 
 
-def enqueue_job(program_id: int, priority: int = 100) -> int:
+def enqueue_job(program_id: int, priority: int = 100, *, cut_type: Optional[str] = None, thickness: Optional[str] = None, material: Optional[str] = None) -> int:
     now = datetime.utcnow().isoformat()
     with _connect() as conn:
         cur = conn.execute(
             """
-            INSERT INTO jobs(program_id, status, priority, queued_at)
-            VALUES (?, 'queued', ?, ?)
+            INSERT INTO jobs(program_id, status, priority, queued_at, cut_type, thickness, material)
+            VALUES (?, 'queued', ?, ?, ?, ?, ?)
             """,
-            (program_id, priority, now),
+            (program_id, priority, now, cut_type, thickness, material),
         )
         conn.commit()
         return int(cur.lastrowid)
