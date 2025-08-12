@@ -120,8 +120,9 @@ def list_active_jobs() -> List[Dict[str, Any]]:
             SELECT j.*, p.name AS program_name
             FROM jobs j
             JOIN programs p ON p.id = j.program_id
-            WHERE j.status IN ('running','paused')
-            ORDER BY CASE j.status WHEN 'running' THEN 0 ELSE 1 END, j.priority, j.queued_at
+            WHERE j.status IN ('running','paused','queued')
+            ORDER BY CASE j.status WHEN 'running' THEN 0 WHEN 'paused' THEN 1 ELSE 2 END,
+                     j.priority, j.queued_at
             """
         ).fetchall()
         return [dict(r) for r in rows]
