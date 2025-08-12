@@ -1,0 +1,12 @@
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.env
+.venv/
+venv/
+.env*
+*.sqlite
+*.db
+*.db-journal
+uvicorn.log

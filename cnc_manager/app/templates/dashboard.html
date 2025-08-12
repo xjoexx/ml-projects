@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% block title %}Очередь | CNC Manager{% endblock %}
+{% block content %}
+<section>
+  <h2>Добавить в очередь</h2>
+  <form method="post" action="/jobs/enqueue">
+    <label>
+      Программа:
+      <select name="program_id" required>
+        {% for p in programs %}
+          <option value="{{ p.id }}">{{ p.name }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label>
+      Приоритет:
+      <input type="number" name="priority" value="100" min="1" />
+    </label>
+    <button type="submit">Поставить</button>
+  </form>
+</section>
+
+<section>
+  <h2>Очередь и задания</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>ID</th>
+        <th>Программа</th>
+        <th>Статус</th>
+        <th>Приоритет</th>
+        <th>Действия</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for j in jobs %}
+      <tr>
+        <td>{{ j.id }}</td>
+        <td>{{ j.program_name }}</td>
+        <td>{{ j.status }}</td>
+        <td>{{ j.priority }}</td>
+        <td>
+          {% if j.status in ["queued", "running"] %}
+            <form method="post" action="/jobs/{{ j.id }}/pause" style="display:inline">
+              <button type="submit">Пауза</button>
+            </form>
+            <form method="post" action="/jobs/{{ j.id }}/cancel" style="display:inline">
+              <button type="submit">Отменить</button>
+            </form>
+          {% elif j.status == "paused" %}
+            <form method="post" action="/jobs/{{ j.id }}/resume" style="display:inline">
+              <button type="submit">Продолжить</button>
+            </form>
+            <form method="post" action="/jobs/{{ j.id }}/cancel" style="display:inline">
+              <button type="submit">Отменить</button>
+            </form>
+          {% else %}
+            —
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endblock %}

@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block title %}Отчёты | CNC Manager{% endblock %}
+{% block content %}
+<section>
+  <h2>Итоги</h2>
+  <ul>
+    {% for k, v in summary.by_status.items() %}
+      <li>{{ k }}: {{ v }}</li>
+    {% endfor %}
+    <li>Средняя длительность: {{ summary.avg_duration_seconds or '—' }} сек</li>
+  </ul>
+</section>
+<section>
+  <h2>Последние задания</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>ID</th>
+        <th>Программа</th>
+        <th>Статус</th>
+        <th>Начало</th>
+        <th>Окончание</th>
+        <th>Станок</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for j in recent %}
+      <tr>
+        <td>{{ j.id }}</td>
+        <td>{{ j.program_name }}</td>
+        <td>{{ j.status }}</td>
+        <td>{{ j.started_at or '—' }}</td>
+        <td>{{ j.finished_at or '—' }}</td>
+        <td>{{ j.machine_name or '—' }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endblock %}
