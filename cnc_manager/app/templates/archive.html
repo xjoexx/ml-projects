@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block title %}Архив выполненных | CNC Manager{% endblock %}
+{% block content %}
+<section>
+  <h2>Архив выполненных программ</h2>
+  <form method="get" action="/archive" style="margin-bottom:12px; display:flex; gap:8px; align-items:center;">
+    <input type="text" name="q" value="{{ q }}" placeholder="Поиск по программе" />
+    <button type="submit">Найти</button>
+    {% if q %}<a href="/archive" style="margin-left:8px;">Сбросить</a>{% endif %}
+  </form>
+  <table>
+    <thead>
+      <tr>
+        <th>ID</th>
+        <th>Программа</th>
+        <th>Статус</th>
+        <th>Приоритет</th>
+        <th>Номер плавки</th>
+        <th>Оператор</th>
+        <th>Начато</th>
+        <th>Завершено</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for j in jobs %}
+      <tr class="status-{{ j.status }}">
+        <td>{{ j.id }}</td>
+        <td>{{ j.program_name }}</td>
+        <td>{{ j.status }}</td>
+        <td>{{ j.priority }}</td>
+        <td>{{ j.heat_number or '—' }}</td>
+        <td>{{ j.operator_name or '—' }}</td>
+        <td>{{ j.started_at or '—' }}</td>
+        <td>{{ j.finished_at or '—' }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endblock %}

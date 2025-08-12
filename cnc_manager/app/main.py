@@ -56,7 +56,7 @@ def programs_api_list():
 
 @app.route("/jobs/", methods=["GET"])
 def jobs_dashboard():
-    jobs = db.list_jobs()
+    jobs = db.list_active_jobs()
     programs = db.list_programs()
     operators = ["Артемьев", "Корниенков", "Федосеев"]
     return render_template("dashboard.html", jobs=jobs, programs=programs, operators=operators)
@@ -134,15 +134,23 @@ def resume_job(job_id: int):
     return redirect(url_for("jobs_dashboard"))
 
 
-@app.route("/jobs/<int:job_id>/cancel", methods=["POST"]) 
-def cancel_job(job_id: int):
+@app.route("/jobs/<int:job_id>/complete", methods=["POST"]) 
+def complete_job(job_id: int):
     job = db.get_job(job_id)
     if not job:
         return ("Job not found", 404)
     if job["status"] in ("completed", "failed", "canceled"):
         return ("Already finished", 400)
-    db.update_job_status(job_id, "canceled")
+    db.update_job_status(job_id, "completed")
     return redirect(url_for("jobs_dashboard"))
+
+
+@app.route("/archive", methods=["GET"]) 
+def archive_page():
+    q = request.args.get("q", type=str)
+    jobs = db.list_completed_jobs(search_program=q)
+    operators = ["Артемьев", "Корниенков", "Федосеев"]
+    return render_template("archive.html", jobs=jobs, operators=operators, q=q or "")
 
 
 @app.route("/reports/", methods=["GET"]) 

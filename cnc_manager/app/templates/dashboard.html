@@ -65,15 +65,15 @@
             <form method="post" action="/jobs/{{ j.id }}/pause" style="display:inline">
               <button type="submit">Пауза</button>
             </form>
-            <form method="post" action="/jobs/{{ j.id }}/cancel" style="display:inline">
-              <button type="submit">Отменить</button>
+            <form method="post" action="/jobs/{{ j.id }}/complete" style="display:inline">
+              <button type="submit">Выполнить</button>
             </form>
           {% elif j.status == "paused" %}
             <form method="post" action="/jobs/{{ j.id }}/resume" style="display:inline">
               <button type="submit">Продолжить</button>
             </form>
-            <form method="post" action="/jobs/{{ j.id }}/cancel" style="display:inline">
-              <button type="submit">Отменить</button>
+            <form method="post" action="/jobs/{{ j.id }}/complete" style="display:inline">
+              <button type="submit">Выполнить</button>
             </form>
           {% else %}
             —

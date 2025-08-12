@@ -113,6 +113,47 @@ def list_jobs() -> List[Dict[str, Any]]:
         return [dict(r) for r in rows]
 
 
+def list_active_jobs() -> List[Dict[str, Any]]:
+    with _connect() as conn:
+        rows = conn.execute(
+            """
+            SELECT j.*, p.name AS program_name
+            FROM jobs j
+            JOIN programs p ON p.id = j.program_id
+            WHERE j.status IN ('running','paused')
+            ORDER BY CASE j.status WHEN 'running' THEN 0 ELSE 1 END, j.priority, j.queued_at
+            """
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+
+def list_completed_jobs(search_program: Optional[str] = None) -> List[Dict[str, Any]]:
+    with _connect() as conn:
+        if search_program:
+            like = f"%{search_program}%"
+            rows = conn.execute(
+                """
+                SELECT j.*, p.name AS program_name
+                FROM jobs j
+                JOIN programs p ON p.id = j.program_id
+                WHERE j.status = 'completed' AND p.name LIKE ?
+                ORDER BY j.finished_at DESC
+                """,
+                (like,),
+            ).fetchall()
+        else:
+            rows = conn.execute(
+                """
+                SELECT j.*, p.name AS program_name
+                FROM jobs j
+                JOIN programs p ON p.id = j.program_id
+                WHERE j.status = 'completed'
+                ORDER BY j.finished_at DESC
+                """
+            ).fetchall()
+        return [dict(r) for r in rows]
+
+
 def enqueue_job(program_id: int, priority: int = 100) -> int:
     now = datetime.utcnow().isoformat()
     with _connect() as conn:
