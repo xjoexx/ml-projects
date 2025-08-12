@@ -16,6 +16,23 @@
       Приоритет:
       <input type="number" name="priority" value="100" min="1" />
     </label>
+    <label>
+      Тип резки:
+      <select name="cut_type">
+        <option value="">—</option>
+        {% for ct in cut_types %}
+          <option value="{{ ct }}">{{ ct|capitalize }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label>
+      Толщина:
+      <input type="text" name="thickness" placeholder="мм" />
+    </label>
+    <label>
+      Материал:
+      <input type="text" name="material" placeholder="Сталь" />
+    </label>
     <button type="submit">Поставить</button>
   </form>
 </section>
@@ -34,6 +51,9 @@
         <th>Программа</th>
         <th>Статус</th>
         <th>Приоритет</th>
+        <th>Тип резки</th>
+        <th>Толщина</th>
+        <th>Материал</th>
         <th>Номер плавки</th>
         <th>Оператор</th>
         <th>Действия</th>
@@ -44,9 +64,15 @@
       <tr draggable="true" data-job-id="{{ j.id }}" class="draggable-row status-{{ j.status }}">
         <td class="drag-handle">⋮⋮</td>
         <td>{{ j.id }}</td>
-        <td>{{ j.program_name }}</td>
-        <td class="status-cell">{{ j.status }}</td>
+        <td>
+          <button class="toggle-items" data-program-id="{{ j.program_id }}" aria-expanded="false">+</button>
+          <span>{{ j.program_name }}</span>
+        </td>
+        <td class="status-cell">{{ j.status|status_ru }}</td>
         <td class="priority-cell">{{ j.priority }}</td>
+        <td>{{ j.cut_type or '—' }}</td>
+        <td>{{ j.thickness or '—' }}</td>
+        <td>{{ j.material or '—' }}</td>
         <td>
           <input type="text" class="heat-input" data-job-id="{{ j.id }}" value="{{ j.heat_number or '' }}" placeholder="введите номер" />
           <span class="heat-save-status" aria-live="polite"></span>
@@ -83,6 +109,17 @@
           </form>
         </td>
       </tr>
+      <tr class="program-items-row" data-program-id="{{ j.program_id }}" style="display:none;">
+        <td></td>
+        <td colspan="10">
+          <table class="nested">
+            <thead>
+              <tr><th>Номер детали</th><th>Наименование</th><th>Количество</th></tr>
+            </thead>
+            <tbody class="items-body"></tbody>
+          </table>
+        </td>
+      </tr>
       {% endfor %}
     </tbody>
   </table>
@@ -94,89 +131,59 @@
   const saveBtn = document.getElementById('save-order-btn');
   const statusEl = document.getElementById('reorder-status');
   let dragEl = null;
-  let orderDirty = false;
 
-  function markDirty(){ orderDirty = true; saveBtn.disabled = false; statusEl.textContent = 'Порядок изменён, нажмите «Сохранить порядок»'; statusEl.style.color='#d97706'; }
+  function markDirty(){ saveBtn.disabled = false; statusEl.textContent = 'Порядок изменён, нажмите «Сохранить порядок»'; statusEl.style.color='#d97706'; }
   function clearStatus(){ statusEl.textContent = ''; }
 
-  function handleDragStart(e){
-    dragEl = this;
-    this.classList.add('dragging');
-    e.dataTransfer.effectAllowed = 'move';
-    try { e.dataTransfer.setData('text/plain', this.dataset.jobId); } catch(_) {}
-  }
-  function handleDragOver(e){
-    e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
-    const target = e.target.closest('tr');
-    if(!target || target === dragEl || !tbody.contains(target)) return;
-    const rect = target.getBoundingClientRect();
-    const next = (e.clientY - rect.top)/(rect.height) > 0.5;
-    tbody.insertBefore(dragEl, next ? target.nextSibling : target);
-  }
-  function handleDragEnd(){
-    this.classList.remove('dragging');
-    dragEl = null;
-    markDirty();
-  }
+  function handleDragStart(e){ dragEl = this; this.classList.add('dragging'); e.dataTransfer.effectAllowed = 'move'; try { e.dataTransfer.setData('text/plain', this.dataset.jobId); } catch(_) {} }
+  function handleDragOver(e){ e.preventDefault(); e.dataTransfer.dropEffect = 'move'; const target = e.target.closest('tr.draggable-row'); if(!target || target === dragEl || !tbody.contains(target)) return; const rect = target.getBoundingClientRect(); const next = (e.clientY - rect.top)/(rect.height) > 0.5; tbody.insertBefore(dragEl, next ? target.nextSibling : target); const nextItems = tbody.querySelector(`tr.program-items-row[data-program-id="${dragEl.querySelector('.toggle-items').dataset.programId}"]`); tbody.insertBefore(nextItems, dragEl.nextSibling); }
+  function handleDragEnd(){ this.classList.remove('dragging'); dragEl = null; markDirty(); }
 
-  function submitNewOrder(){
-    const ids = Array.from(tbody.querySelectorAll('tr[data-job-id]')).map(tr => parseInt(tr.dataset.jobId, 10));
-    fetch('/jobs/reorder', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({job_ids: ids})})
-      .then(r => r.json())
-      .then(resp => {
-        if(resp && resp.ok){ statusEl.textContent = 'Порядок сохранён'; statusEl.style.color = '#16a34a'; saveBtn.disabled = true; orderDirty=false; }
-        else { statusEl.textContent = 'Ошибка сохранения порядка'; statusEl.style.color = '#b91c1c'; }
-        setTimeout(clearStatus, 2000);
-      })
-      .catch(()=>{
-        statusEl.textContent = 'Ошибка сети'; statusEl.style.color = '#b91c1c';
-        setTimeout(clearStatus, 2000);
-      });
-  }
+  function submitNewOrder(){ const ids = Array.from(tbody.querySelectorAll('tr.draggable-row[data-job-id]')).map(tr => parseInt(tr.dataset.jobId, 10)); fetch('/jobs/reorder', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({job_ids: ids})}).then(r => r.json()).then(resp => { if(resp && resp.ok){ statusEl.textContent = 'Порядок сохранён'; statusEl.style.color = '#16a34a'; saveBtn.disabled = true; } else { statusEl.textContent = 'Ошибка сохранения порядка'; statusEl.style.color = '#b91c1c'; } setTimeout(clearStatus, 2000); }).catch(()=>{ statusEl.textContent = 'Ошибка сети'; statusEl.style.color = '#b91c1c'; setTimeout(clearStatus, 2000); }); }
 
-  Array.from(tbody.querySelectorAll('tr.draggable-row')).forEach(row => {
-    row.addEventListener('dragstart', handleDragStart);
-    row.addEventListener('dragover', handleDragOver);
-    row.addEventListener('dragend', handleDragEnd);
-  });
-
+  Array.from(tbody.querySelectorAll('tr.draggable-row')).forEach(row => { row.addEventListener('dragstart', handleDragStart); row.addEventListener('dragover', handleDragOver); row.addEventListener('dragend', handleDragEnd); });
   saveBtn.addEventListener('click', submitNewOrder);
 
-  // Heat number inline save
-  function saveHeat(jobId, value, statusEl, inputEl){
-    fetch(`/jobs/${jobId}/heat`, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({heat_number: value || null})})
-      .then(r => r.json())
-      .then(resp => {
-        if(resp && resp.ok){ statusEl.textContent = '✓'; statusEl.style.color = '#16a34a'; inputEl.style.borderColor = '#16a34a'; }
-        else { statusEl.textContent = 'Ошибка'; statusEl.style.color = '#b91c1c'; inputEl.style.borderColor = '#b91c1c'; }
-        setTimeout(()=>{ statusEl.textContent=''; inputEl.style.borderColor = ''; }, 1500);
-      })
-      .catch(()=>{ statusEl.textContent = 'Ошибка сети'; statusEl.style.color = '#b91c1c'; inputEl.style.borderColor = '#b91c1c'; setTimeout(()=>{ statusEl.textContent=''; inputEl.style.borderColor = ''; }, 1500); });
+  function saveHeat(jobId, value, s, inputEl){ fetch(`/jobs/${jobId}/heat`, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({heat_number: value || null})}).then(r => r.json()).then(resp => { if(resp && resp.ok){ s.textContent = '✓'; s.style.color = '#16a34a'; inputEl.style.borderColor = '#16a34a'; } else { s.textContent = 'Ошибка'; s.style.color = '#b91c1c'; inputEl.style.borderColor = '#b91c1c'; } setTimeout(()=>{ s.textContent=''; inputEl.style.borderColor = ''; }, 1500); }).catch(()=>{ s.textContent = 'Ошибка сети'; s.style.color = '#b91c1c'; inputEl.style.borderColor = '#b91c1c'; setTimeout(()=>{ s.textContent=''; inputEl.style.borderColor = ''; }, 1500); }); }
+  Array.from(document.querySelectorAll('.heat-input')).forEach(input => { const s = input.parentElement.querySelector('.heat-save-status'); input.addEventListener('change', () => { saveHeat(parseInt(input.dataset.jobId,10), input.value.trim(), s, input); }); input.addEventListener('blur', () => { saveHeat(parseInt(input.dataset.jobId,10), input.value.trim(), s, input); }); });
+
+  function saveOperator(jobId, value, s, sel){ fetch(`/jobs/${jobId}/operator`, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({operator_name: value || null})}).then(r => r.json()).then(resp => { if(resp && resp.ok){ s.textContent = '✓'; s.style.color = '#16a34a'; sel.style.borderColor = '#16a34a'; } else { s.textContent = 'Ошибка'; s.style.color = '#b91c1c'; sel.style.borderColor = '#b91c1c'; } setTimeout(()=>{ s.textContent=''; sel.style.borderColor = ''; }, 1500); }).catch(()=>{ s.textContent = 'Ошибка сети'; s.style.color = '#b91c1c'; sel.style.borderColor = '#b91c1c'; setTimeout(()=>{ s.textContent=''; sel.style.borderColor = ''; }, 1500); }); }
+  Array.from(document.querySelectorAll('.operator-select')).forEach(sel => { const s = sel.parentElement.querySelector('.operator-save-status'); sel.addEventListener('change', () => { saveOperator(parseInt(sel.dataset.jobId,10), sel.value, s, sel); }); });
+
+  // Toggle program items
+  function toggleItems(btn){
+    const pid = btn.dataset.programId;
+    const row = tbody.querySelector(`tr.program-items-row[data-program-id="${pid}"]`);
+    const expanded = btn.getAttribute('aria-expanded') === 'true';
+    if(expanded){
+      row.style.display = 'none';
+      btn.setAttribute('aria-expanded','false');
+      btn.textContent = '+';
+      return;
+    }
+    // fetch items then show
+    fetch(`/programs/${pid}/items`).then(r=>r.json()).then(items => {
+      const tb = row.querySelector('.items-body');
+      tb.innerHTML = '';
+      if(Array.isArray(items)){
+        items.forEach(it => {
+          const tr = document.createElement('tr');
+          tr.innerHTML = `<td>${it.part_number || '—'}</td><td>${it.name || '—'}</td><td>${it.quantity ?? '—'}</td>`;
+          tb.appendChild(tr);
+        });
+      }
+      row.style.display = '';
+      btn.setAttribute('aria-expanded','true');
+      btn.textContent = '−';
+    }).catch(()=>{
+      const tb = row.querySelector('.items-body');
+      tb.innerHTML = '<tr><td colspan="3">Ошибка загрузки</td></tr>';
+      row.style.display = '';
+      btn.setAttribute('aria-expanded','true');
+      btn.textContent = '−';
+    });
   }
-
-  Array.from(document.querySelectorAll('.heat-input')).forEach(input => {
-    const s = input.parentElement.querySelector('.heat-save-status');
-    input.addEventListener('change', () => { saveHeat(parseInt(input.dataset.jobId,10), input.value.trim(), s, input); });
-    input.addEventListener('blur', () => { saveHeat(parseInt(input.dataset.jobId,10), input.value.trim(), s, input); });
-  });
-
-  // Operator select save
-  function saveOperator(jobId, value, s, sel){
-    fetch(`/jobs/${jobId}/operator`, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({operator_name: value || null})})
-      .then(r => r.json())
-      .then(resp => {
-        if(resp && resp.ok){ s.textContent = '✓'; s.style.color = '#16a34a'; sel.style.borderColor = '#16a34a'; }
-        else { s.textContent = 'Ошибка'; s.style.color = '#b91c1c'; sel.style.borderColor = '#b91c1c'; }
-        setTimeout(()=>{ s.textContent=''; sel.style.borderColor = ''; }, 1500);
-      })
-      .catch(()=>{ s.textContent = 'Ошибка сети'; s.style.color = '#b91c1c'; sel.style.borderColor = '#b91c1c'; setTimeout(()=>{ s.textContent=''; sel.style.borderColor = ''; }, 1500); });
-  }
-
-  Array.from(document.querySelectorAll('.operator-select')).forEach(sel => {
-    const s = sel.parentElement.querySelector('.operator-save-status');
-    sel.addEventListener('change', () => { saveOperator(parseInt(sel.dataset.jobId,10), sel.value, s, sel); });
-  });
+  Array.from(document.querySelectorAll('.toggle-items')).forEach(btn => { btn.addEventListener('click', (e)=>{ e.preventDefault(); toggleItems(btn); }); });
 })();
 </script>
 {% endblock %}

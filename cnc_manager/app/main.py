@@ -8,6 +8,20 @@ from . import db
 
 app = Flask(__name__, template_folder=str(Path(__file__).parent / "templates"), static_folder=str(Path(__file__).parent / "static"))
 
+# Jinja filter to translate status to Russian
+_STATUS_RU = {
+    "queued": "Новый",
+    "running": "Выполняется",
+    "paused": "Пауза",
+    "completed": "Выполнено",
+    "failed": "Ошибка",
+    "canceled": "Отменено",
+}
+
+@app.template_filter("status_ru")
+def status_ru(value: str) -> str:
+    return _STATUS_RU.get(value, value)
+
 worker = QueueWorker()
 
 _started = False
@@ -54,21 +68,37 @@ def programs_api_list():
     return jsonify(programs)
 
 
+@app.route("/programs/<int:program_id>/items", methods=["GET"]) 
+def program_items(program_id: int):
+    items = db.list_program_items(program_id)
+    return jsonify(items)
+
+
 @app.route("/jobs/", methods=["GET"])
 def jobs_dashboard():
     jobs = db.list_active_jobs()
     programs = db.list_programs()
     operators = ["Артемьев", "Корниенков", "Федосеев"]
-    return render_template("dashboard.html", jobs=jobs, programs=programs, operators=operators)
+    cut_types = ["газ", "плазма", "лазер"]
+    return render_template("dashboard.html", jobs=jobs, programs=programs, operators=operators, cut_types=cut_types)
 
 
 @app.route("/jobs/enqueue", methods=["POST"])
 def enqueue_job_from_form():
     program_id = request.form.get("program_id", type=int)
     priority = request.form.get("priority", default=100, type=int)
+    cut_type = request.form.get("cut_type", type=str)
+    thickness = request.form.get("thickness", type=str)
+    material = request.form.get("material", type=str)
     if not db.get_program(program_id):
         return ("Program not found", 404)
-    db.enqueue_job(program_id=program_id, priority=priority)
+    db.enqueue_job(
+        program_id=program_id,
+        priority=priority,
+        cut_type=cut_type,
+        thickness=thickness,
+        material=material,
+    )
     return redirect(url_for("jobs_dashboard"))
 
 
