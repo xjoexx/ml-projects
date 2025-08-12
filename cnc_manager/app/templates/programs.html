@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}Программы | CNC Manager{% endblock %}
+{% block content %}
+<section>
+  <h2>Новая программа</h2>
+  <form method="post" action="/programs/create">
+    <div>
+      <label>Название <input type="text" name="name" required /></label>
+    </div>
+    <div>
+      <label>Оценка времени (сек) <input type="number" name="estimated_duration_seconds" min="1" /></label>
+    </div>
+    <div>
+      <label>Код (G-Code)</label>
+      <textarea name="code_text" rows="10" cols="80" required></textarea>
+    </div>
+    <button type="submit">Сохранить</button>
+  </form>
+</section>
+<section>
+  <h2>Список программ</h2>
+  <table>
+    <thead>
+      <tr><th>ID</th><th>Название</th><th>Создана</th></tr>
+    </thead>
+    <tbody>
+      {% for p in programs %}
+      <tr>
+        <td>{{ p.id }}</td>
+        <td>{{ p.name }}</td>
+        <td>{{ p.created_at }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endblock %}
