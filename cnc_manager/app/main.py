@@ -10,10 +10,19 @@ app = Flask(__name__, template_folder=str(Path(__file__).parent / "templates"), 
 
 worker = QueueWorker()
 
-@app.before_first_request
-def setup() -> None:
+_started = False
+
+def _ensure_started_once() -> None:
+    global _started
+    if _started:
+        return
     db.init_db()
     worker.start()
+    _started = True
+
+@app.before_request
+def _before_request_setup():
+    _ensure_started_once()
 
 
 @app.route("/")
