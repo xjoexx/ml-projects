@@ -22,6 +22,10 @@
 
 <section>
   <h2>Очередь и задания</h2>
+  <div style="display:flex; align-items:center; gap:12px; margin-bottom:8px;">
+    <button id="save-order-btn" disabled>Сохранить порядок</button>
+    <span id="reorder-status" style="color:#666"></span>
+  </div>
   <table id="jobs-table">
     <thead>
       <tr>
@@ -31,20 +35,30 @@
         <th>Статус</th>
         <th>Приоритет</th>
         <th>Номер плавки</th>
+        <th>Оператор</th>
         <th>Действия</th>
       </tr>
     </thead>
     <tbody>
       {% for j in jobs %}
-      <tr draggable="true" data-job-id="{{ j.id }}" class="draggable-row">
+      <tr draggable="true" data-job-id="{{ j.id }}" class="draggable-row status-{{ j.status }}">
         <td class="drag-handle">⋮⋮</td>
         <td>{{ j.id }}</td>
         <td>{{ j.program_name }}</td>
-        <td>{{ j.status }}</td>
+        <td class="status-cell">{{ j.status }}</td>
         <td class="priority-cell">{{ j.priority }}</td>
         <td>
           <input type="text" class="heat-input" data-job-id="{{ j.id }}" value="{{ j.heat_number or '' }}" placeholder="введите номер" />
           <span class="heat-save-status" aria-live="polite"></span>
+        </td>
+        <td>
+          <select class="operator-select" data-job-id="{{ j.id }}">
+            <option value="" {% if not j.operator_name %}selected{% endif %}>—</option>
+            {% for op in operators %}
+              <option value="{{ op }}" {% if j.operator_name==op %}selected{% endif %}>{{ op }}</option>
+            {% endfor %}
+          </select>
+          <span class="operator-save-status" aria-live="polite"></span>
         </td>
         <td>
           {% if j.status in ["queued", "running"] %}
@@ -69,14 +83,18 @@
       {% endfor %}
     </tbody>
   </table>
-
-  <div id="reorder-status" style="margin-top:8px; color:#666"></div>
 </section>
 
 <script>
 (function(){
   const tbody = document.querySelector('#jobs-table tbody');
+  const saveBtn = document.getElementById('save-order-btn');
+  const statusEl = document.getElementById('reorder-status');
   let dragEl = null;
+  let orderDirty = false;
+
+  function markDirty(){ orderDirty = true; saveBtn.disabled = false; statusEl.textContent = 'Порядок изменён, нажмите «Сохранить порядок»'; statusEl.style.color='#d97706'; }
+  function clearStatus(){ statusEl.textContent = ''; }
 
   function handleDragStart(e){
     dragEl = this;
@@ -96,7 +114,7 @@
   function handleDragEnd(){
     this.classList.remove('dragging');
     dragEl = null;
-    submitNewOrder();
+    markDirty();
   }
 
   function submitNewOrder(){
@@ -104,15 +122,13 @@
     fetch('/jobs/reorder', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({job_ids: ids})})
       .then(r => r.json())
       .then(resp => {
-        const el = document.getElementById('reorder-status');
-        if(resp && resp.ok){ el.textContent = 'Порядок сохранён'; el.style.color = '#16a34a'; }
-        else { el.textContent = 'Ошибка сохранения порядка'; el.style.color = '#b91c1c'; }
-        setTimeout(()=>{ el.textContent=''; }, 2000);
+        if(resp && resp.ok){ statusEl.textContent = 'Порядок сохранён'; statusEl.style.color = '#16a34a'; saveBtn.disabled = true; orderDirty=false; }
+        else { statusEl.textContent = 'Ошибка сохранения порядка'; statusEl.style.color = '#b91c1c'; }
+        setTimeout(clearStatus, 2000);
       })
       .catch(()=>{
-        const el = document.getElementById('reorder-status');
-        el.textContent = 'Ошибка сети'; el.style.color = '#b91c1c';
-        setTimeout(()=>{ el.textContent=''; }, 2000);
+        statusEl.textContent = 'Ошибка сети'; statusEl.style.color = '#b91c1c';
+        setTimeout(clearStatus, 2000);
       });
   }
 
@@ -121,6 +137,8 @@
     row.addEventListener('dragover', handleDragOver);
     row.addEventListener('dragend', handleDragEnd);
   });
+
+  saveBtn.addEventListener('click', submitNewOrder);
 
   // Heat number inline save
   function saveHeat(jobId, value, statusEl, inputEl){
@@ -135,15 +153,26 @@
   }
 
   Array.from(document.querySelectorAll('.heat-input')).forEach(input => {
-    const statusEl = input.parentElement.querySelector('.heat-save-status');
-    input.addEventListener('change', () => {
-      const jobId = parseInt(input.dataset.jobId, 10);
-      saveHeat(jobId, input.value.trim(), statusEl, input);
-    });
-    input.addEventListener('blur', () => {
-      const jobId = parseInt(input.dataset.jobId, 10);
-      saveHeat(jobId, input.value.trim(), statusEl, input);
-    });
+    const s = input.parentElement.querySelector('.heat-save-status');
+    input.addEventListener('change', () => { saveHeat(parseInt(input.dataset.jobId,10), input.value.trim(), s, input); });
+    input.addEventListener('blur', () => { saveHeat(parseInt(input.dataset.jobId,10), input.value.trim(), s, input); });
+  });
+
+  // Operator select save
+  function saveOperator(jobId, value, s, sel){
+    fetch(`/jobs/${jobId}/operator`, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({operator_name: value || null})})
+      .then(r => r.json())
+      .then(resp => {
+        if(resp && resp.ok){ s.textContent = '✓'; s.style.color = '#16a34a'; sel.style.borderColor = '#16a34a'; }
+        else { s.textContent = 'Ошибка'; s.style.color = '#b91c1c'; sel.style.borderColor = '#b91c1c'; }
+        setTimeout(()=>{ s.textContent=''; sel.style.borderColor = ''; }, 1500);
+      })
+      .catch(()=>{ s.textContent = 'Ошибка сети'; s.style.color = '#b91c1c'; sel.style.borderColor = '#b91c1c'; setTimeout(()=>{ s.textContent=''; sel.style.borderColor = ''; }, 1500); });
+  }
+
+  Array.from(document.querySelectorAll('.operator-select')).forEach(sel => {
+    const s = sel.parentElement.querySelector('.operator-save-status');
+    sel.addEventListener('change', () => { saveOperator(parseInt(sel.dataset.jobId,10), sel.value, s, sel); });
   });
 })();
 </script>

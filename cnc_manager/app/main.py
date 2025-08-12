@@ -58,7 +58,8 @@ def programs_api_list():
 def jobs_dashboard():
     jobs = db.list_jobs()
     programs = db.list_programs()
-    return render_template("dashboard.html", jobs=jobs, programs=programs)
+    operators = ["Артемьев", "Корниенков", "Федосеев"]
+    return render_template("dashboard.html", jobs=jobs, programs=programs, operators=operators)
 
 
 @app.route("/jobs/enqueue", methods=["POST"])
@@ -96,6 +97,18 @@ def update_heat_number(job_id: int):
     if not db.get_job(job_id):
         return jsonify({"ok": False, "error": "Job not found"}), 404
     db.update_job_heat_number(job_id, heat_number)
+    return jsonify({"ok": True})
+
+
+@app.route("/jobs/<int:job_id>/operator", methods=["POST"]) 
+def update_operator(job_id: int):
+    payload = request.get_json(silent=True) or {}
+    operator_name = payload.get("operator_name")
+    if operator_name is not None and not isinstance(operator_name, str):
+        return jsonify({"ok": False, "error": "operator_name must be string or null"}), 400
+    if not db.get_job(job_id):
+        return jsonify({"ok": False, "error": "Job not found"}), 404
+    db.update_job_operator(job_id, operator_name)
     return jsonify({"ok": True})
 
 

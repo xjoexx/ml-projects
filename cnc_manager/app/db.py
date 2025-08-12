@@ -42,14 +42,17 @@ def init_db() -> None:
               machine_name TEXT,
               error_message TEXT,
               heat_number TEXT,
+              operator_name TEXT,
               FOREIGN KEY(program_id) REFERENCES programs(id)
             );
             """
         )
-        # Migration: ensure heat_number column exists
+        # Migration: ensure heat_number and operator_name columns exist
         cols = [r[1] for r in conn.execute("PRAGMA table_info(jobs)").fetchall()]
         if "heat_number" not in cols:
             conn.execute("ALTER TABLE jobs ADD COLUMN heat_number TEXT")
+        if "operator_name" not in cols:
+            conn.execute("ALTER TABLE jobs ADD COLUMN operator_name TEXT")
         conn.commit()
 
 
@@ -181,6 +184,12 @@ def set_job_priorities(job_ids_in_order: List[int]) -> None:
 def update_job_heat_number(job_id: int, heat_number: Optional[str]) -> None:
     with _connect() as conn:
         conn.execute("UPDATE jobs SET heat_number = ? WHERE id = ?", (heat_number, job_id))
+        conn.commit()
+
+
+def update_job_operator(job_id: int, operator_name: Optional[str]) -> None:
+    with _connect() as conn:
+        conn.execute("UPDATE jobs SET operator_name = ? WHERE id = ?", (operator_name, job_id))
         conn.commit()
 
 
